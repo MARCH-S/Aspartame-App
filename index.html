@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aspartame Detector</title>
+<script>
+  try { var t = localStorage.getItem('asp-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f1ff; --surface: #ffffff; --soft: #f1eefc; --text: #1d1a3a; --muted: #6f6c8c; --border: #e7e3f6;
+    --accent: #5b45e6; --accent-2: #8b6cff; --track: #ececf4;
+    --r: #e11d2e; --g: #16c04f; --b: #4f46e5;
+    --ok: #16a34a; --warn: #eab308; --risk: #f97316; --bad: #e11d2e;
+    --shadow: 0 1px 2px rgba(40,30,110,.05), 0 12px 32px rgba(60,40,160,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark; --bg: #100e1d; --surface: #1a1730; --soft: #231f42; --text: #eeecfb; --muted: #a09db9; --border: #2c2850;
+      --accent: #8b72ff; --accent-2: #a995ff; --track: #2a2748; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark; --bg: #100e1d; --surface: #1a1730; --soft: #231f42; --text: #eeecfb; --muted: #a09db9; --border: #2c2850;
+    --accent: #8b72ff; --accent-2: #a995ff; --track: #2a2748; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.45; -webkit-font-smoothing: antialiased;
+         font-family: "Noto Sans Thai", Sarabun, Inter, "Segoe UI", system-ui, -apple-system, sans-serif; }
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(800px 380px at 50% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 65%); }
+  [hidden] { display: none !important; }
+  svg { display: block; }
+  .mono { font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+
+  /* header */
+  .top { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(14px); background: color-mix(in srgb, var(--bg) 82%, transparent); }
+  .top-in { max-width: 1080px; margin: 0 auto; padding: 14px 18px 10px; display: flex; align-items: center; gap: 12px; }
+  .brand { flex: 1; text-align: center; }
+  .brand h1 { margin: 0; font-size: 1.25rem; letter-spacing: -.01em; }
+  .brand p { margin: 2px 0 0; font-size: .82rem; color: var(--muted); display: flex; justify-content: center; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #a8a6bd; display: inline-block; }
+  .dot.on { background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 25%, transparent); }
+  .ibtn { width: 42px; height: 42px; border-radius: 13px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+          display: grid; place-items: center; cursor: pointer; flex: none; }
+  .ibtn svg { width: 21px; height: 21px; }
+
+  /* tabs (มือถือ = แถบล่าง, PC = กลางหัวเว็บ) */
+  .tabs { position: fixed; z-index: 40; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); margin: 0 auto; max-width: 520px;
+          display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px; border-radius: 22px;
+          background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .tabs button { font: inherit; font-size: .74rem; border: 0; background: transparent; color: var(--muted); border-radius: 16px; padding: 8px 4px;
+                 display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+  .tabs button svg { width: 24px; height: 24px; }
+  .tabs button[aria-current="page"] { background: var(--soft); color: var(--accent); font-weight: 600; }
+  @media (min-width: 900px) {
+    .tabs { position: sticky; top: 74px; bottom: auto; left: auto; right: auto; width: 480px; margin: 2px auto 0; padding: 4px; border-radius: 16px; }
+    .tabs button { flex-direction: row; justify-content: center; gap: 6px; font-size: .85rem; padding: 8px 6px; border-radius: 12px; }
+    .tabs button svg { width: 18px; height: 18px; }
+  }
+
+  /* layout */
+  main { max-width: 1080px; margin: 0 auto; padding: 14px 18px 120px; }
+  .home { display: grid; gap: 0 22px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { .home { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } main { padding-top: 22px; } }
+  .card { position: relative; background: var(--surface); border-radius: 22px; padding: 20px; margin: 0 0 20px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  .num { position: absolute; left: -6px; top: -10px; width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center;
+         font-weight: 700; font-size: 1.05rem; box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 40%, transparent); border: 3px solid var(--bg); }
+  .card h2 { margin: 0 0 14px 20px; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+  .card h2 small { font-weight: 400; color: var(--muted); font-size: .95rem; }
+  .info { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--muted); color: var(--muted); font-size: .72rem; display: inline-grid; place-items: center; cursor: help; }
+
+  /* upload */
+  .dropzone { display: flex; align-items: center; justify-content: center; gap: 12px; text-align: left; padding: 18px; border: 2px dashed var(--border); border-radius: 16px;
+              cursor: pointer; transition: .15s; background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .dropzone svg { width: 34px; height: 34px; color: var(--accent); flex: none; }
+  .dropzone b { display: block; } .dropzone span { font-size: .82rem; color: var(--muted); }
+  .preview { display: none; margin-top: 14px; text-align: center; }
+  body.has-image .preview { display: block; }
+  .preview canvas { max-width: 100%; max-height: 260px; border-radius: 14px; border: 1px solid var(--border); }
+  #qc { font-size: .82rem; color: var(--muted); margin-top: 8px; text-align: center; }
+  .legend { display: flex; gap: 14px; justify-content: center; font-size: .76rem; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+
+  /* 1: RGB */
+  .rgb-grid { display: grid; grid-template-columns: 120px 1px minmax(0, 1fr); gap: 18px; align-items: center; }
+  @media (max-width: 400px) { .rgb-grid { grid-template-columns: 1fr; } .vsep { display: none; } .sw { margin: 0 auto; } }
+  .sw { width: 116px; height: 116px; border-radius: 50%; border: 6px solid var(--surface); box-shadow: 0 0 0 1px var(--border), 0 10px 24px rgba(60,40,160,.18); background: #cfcde0; }
+  .vsep { align-self: stretch; background: var(--border); }
+  .bars { display: grid; gap: 12px; }
+  .brow { display: grid; grid-template-columns: 18px 12px minmax(0, 1fr) 40px; gap: 10px; align-items: center; font-weight: 600; }
+  .brow i { width: 12px; height: 12px; border-radius: 50%; }
+  .track { height: 12px; border-radius: 99px; background: var(--track); overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; width: 0; transition: width .35s ease; }
+  .brow .v { text-align: right; font-size: 1.05rem; }
+  .chip { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: var(--soft); text-align: center; font-weight: 600; letter-spacing: .02em; }
+
+  /* 2: ppm */
+  .ppm-top { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .big { font-size: clamp(3rem, 11vw, 4.4rem); line-height: 1; font-weight: 800; color: var(--accent); letter-spacing: -.02em; }
+  .unit { font-size: 1.5rem; font-weight: 600; margin-top: 4px; }
+  .u { font-size: .85rem; color: var(--muted); margin-top: 2px; }
+  .rel { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 16px; background: var(--soft); color: var(--accent); font-size: .9rem; max-width: 230px; }
+  .rel svg { width: 28px; height: 28px; flex: none; }
+  .gwrap { position: relative; margin: 34px 8px 0; }
+  .gauge { height: 16px; border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 8%, var(--surface)), var(--accent-2) 60%, var(--accent)); border: 1px solid var(--border); position: relative; }
+  .gauge .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.55); }
+  .pin { position: absolute; top: -14px; width: 16px; height: 44px; transform: translateX(-50%); transition: left .4s ease; pointer-events: none; }
+  .pin::before { content: ""; position: absolute; top: 0; left: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .pin::after { content: ""; position: absolute; top: 14px; left: 6px; width: 4px; height: 20px; border-radius: 3px; background: var(--accent); }
+  .ticks { position: relative; height: 22px; margin-top: 10px; font-size: .82rem; font-weight: 600; }
+  .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .ticks span:first-child { transform: none; } .ticks span:last-child { transform: translateX(-100%); }
+  .zones { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 8px; border-top: 1px solid var(--border); text-align: center; font-weight: 600; font-size: .92rem; }
+  .zones div { padding-top: 8px; } .zones div + div { border-left: 1px solid var(--border); }
+  .z0 { color: var(--ok); } .z1 { color: var(--risk); } .z2 { color: var(--bad); }
+  .flag { margin-top: 12px; padding: 8px 12px; border-radius: 10px; font-size: .84rem; background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .flag:empty { display: none; }
+
+  /* 3: level */
+  .banner { border-radius: 16px; padding: 16px 14px 12px; text-align: center; transition: background .3s;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--c) 22%, var(--surface)), color-mix(in srgb, var(--c) 6%, var(--surface))); }
+  .banner.t-1 { --c: #8d8aa6; } .banner.t0 { --c: var(--ok); } .banner.t1 { --c: var(--warn); } .banner.t2 { --c: var(--risk); } .banner.t3 { --c: var(--bad); }
+  .lvl-h { display: flex; justify-content: center; align-items: center; gap: 12px; color: var(--c); font-weight: 800; font-size: clamp(1.7rem, 6vw, 2.3rem); letter-spacing: .01em; }
+  .lvl-h svg { width: 46px; height: 46px; flex: none; }
+  #lvlMsg { margin: 6px 0 14px; font-size: .95rem; }
+  .lbar { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; height: 14px; border-radius: 99px; overflow: visible; }
+  .lbar i:nth-child(1) { background: #22c55e; border-radius: 99px 0 0 99px; } .lbar i:nth-child(2) { background: #f5c11f; }
+  .lbar i:nth-child(3) { background: #f27d1c; } .lbar i:nth-child(4) { background: #e11d2e; border-radius: 0 99px 99px 0; }
+  .lmark { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--c, #8d8aa6); border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); transition: left .4s ease; left: 0; }
+  .llabels { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 10px; text-align: center; font-weight: 600; font-size: .86rem; }
+  .llabels small { display: block; font-weight: 400; color: var(--muted); font-size: .72rem; }
+  .l0 { color: var(--ok); } .l1 { color: #c99a00; } .l2 { color: var(--risk); } .l3 { color: var(--bad); }
+  .disc { margin: 14px 4px 0; font-size: .76rem; color: var(--muted); }
+  .statusbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-radius: 14px; background: var(--soft); font-size: .86rem; color: var(--muted); margin-bottom: 20px; }
+  .statusbar .ok { color: var(--ok); display: inline-flex; align-items: center; gap: 6px; }
+
+  /* ตาราง / ฟอร์ม / รายงาน */
+  .page-h { margin: 6px 0 14px; font-size: 1.3rem; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .btn { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
+  .btn.danger { color: var(--bad); }
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--soft); }
+  th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.empty { text-align: center; color: var(--muted); padding: 22px; }
+  .pill { padding: 3px 10px; border-radius: 99px; font-size: .76rem; font-weight: 600; color: #fff; }
+  .p0 { background: var(--ok); } .p1 { background: #d9a400; } .p2 { background: var(--risk); } .p3 { background: var(--bad); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 1.5rem; color: var(--accent); } .stat span { font-size: .8rem; color: var(--muted); }
+  .two { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); } @media (min-width: 900px) { .two { grid-template-columns: 1fr 1fr; } }
+  canvas.plot { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  .eq { font-size: 1.05rem; font-weight: 600; padding: 12px 14px; border-radius: 12px; background: var(--soft); margin-bottom: 14px; overflow-x: auto; }
+  .fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--muted); }
+  .field input, .field select { font: inherit; font-size: .95rem; padding: 9px 11px; border-radius: 11px; border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%; min-width: 0; }
+  .card h3 { margin: 4px 0 10px; font-size: 1rem; }
+  .note { font-size: .82rem; color: var(--muted); margin: 6px 0 0; }
+  .btn:focus-visible, .ibtn:focus-visible, .tabs button:focus-visible, input:focus-visible, select:focus-visible, .dropzone:focus-within { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  #toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 14px; font-size: .9rem; max-width: 90vw; box-shadow: var(--shadow); }
+  #toast:empty { display: none; }
+  @media (min-width: 900px) { #toast { bottom: 24px; } }
+  @media print { .top, .tabs, .btn, #toast, .dropzone { display: none !important; } body::before { display: none; } main { padding: 0; } .card, .stat { box-shadow: none; } }
+</style>
+</head>
+<body>
+
+<header class="top"><div class="top-in">
+  <button class="ibtn" id="btnTheme" type="button" aria-label="สลับโหมดมืด/สว่าง">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+  <div class="brand">
+    <h1>Aspartame Detector</h1>
+    <p><span id="hdrLabel">ภาพตัวอย่าง:</span> <b id="hdrName" style="font-weight:500">ยังไม่ได้เลือกภาพ</b> <i class="dot" id="hdrDot"></i></p>
+  </div>
+  <button class="ibtn" id="btnGear" type="button" aria-label="ตั้งค่า">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</div></header>
+
+<nav class="tabs" id="tabs" aria-label="เมนูหลัก">
+  <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span>หน้าหลัก</span></button>
+  <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 15l3-4 3 3 4-6"/></svg><span>ประวัติ</span></button>
+  <button data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7M9 8h3"/></svg><span>รายงาน</span></button>
+  <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke-width="2.6"/></svg><span>เพิ่มเติม</span></button>
+</nav>
+
+<main>
+<!-- ===== หน้าหลัก ===== -->
+<section data-view="home" class="home">
+  <div>
+    <section class="card">
+      <h2 style="margin-left:0">ภาพตัวอย่าง</h2>
+      <label id="dropzone" class="dropzone" for="file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <div><b>ลากภาพมาวาง หรือคลิกเพื่อเลือกไฟล์</b><span>อ่านค่า RGB จากจุดบริเวณขอบภาพอย่างน้อย 100 จุด • ภาพไม่ถูกส่งออกจากเครื่อง</span></div>
+        <input type="file" id="file" accept="image/*" hidden>
+      </label>
+      <div class="preview"><canvas id="view" width="4" height="3"></canvas></div>
+      <div id="qc"></div>
+      <div class="legend"><span><i style="background:#22c55e"></i>จุดที่ใช้</span><span><i style="background:#ef4444"></i>จุดที่ตัดทิ้ง</span></div>
+    </section>
+
+    <section class="card">
+      <span class="num">1</span>
+      <h2>อัตราส่วน RGB <span class="info" title="ค่าสี sRGB 0–255 (median ของจุดที่ใช้) จากบริเวณขอบภาพ">i</span></h2>
+      <div class="rgb-grid">
+        <div id="sw" class="sw"></div><div class="vsep"></div>
+        <div>
+          <div class="bars">
+            <div class="brow"><span>R</span><i style="background:var(--r)"></i><div class="track"><div class="fill" id="fR" style="background:var(--r)"></div></div><span class="v mono" id="vR">–</span></div>
+            <div class="brow"><span>G</span><i style="background:var(--g)"></i><div class="track"><div class="fill" id="fG" style="background:var(--g)"></div></div><span class="v mono" id="vG">–</span></div>
+            <div class="brow"><span>B</span><i style="background:var(--b)"></i><div class="track"><div class="fill" id="fB" style="background:var(--b)"></div></div><span class="v mono" id="vB">–</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="chip mono" id="ratioChip">R : G : B = – : – : –</div>
+    </section>
+  </div>
+
+  <div>
+    <section class="card">
+      <span class="num">2</span>
+      <h2>Aspartame <small>(PPM)</small> <span class="info" id="eqInfo" title="">i</span></h2>
+      <div class="ppm-top">
+        <div>
+          <div class="big mono" id="ppmVal">–</div>
+          <div class="unit">PPM</div>
+          <div class="u mono" id="ppmU"></div>
+        </div>
+        <div class="rel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l7-7"/><path d="M13 4h7v7"/><path d="M20 4l-9 9"/><path d="M4 12l3 3"/></svg>
+          <span>ความสัมพันธ์เชิงบวกกับสีม่วง</span>
+        </div>
+      </div>
+      <div class="gwrap">
+        <div class="gauge" id="gauge"><span class="pin" id="pin" style="left:0"></span></div>
+        <div class="ticks" id="ticks"></div>
+      </div>
+      <div class="zones"><div class="z0">ต่ำ</div><div class="z1">ปานกลาง</div><div class="z2">สูง</div></div>
+      <div class="flag" id="flag"></div>
+    </section>
+
+    <section class="card">
+      <span class="num">3</span>
+      <h2>ระดับเทียบเกณฑ์อ้างอิง</h2>
+      <div class="banner t-1" id="banner">
+        <div class="lvl-h"><span id="lvlIcon"></span><span id="lvlTitle">รอข้อมูล</span></div>
+        <p id="lvlMsg">อัปโหลดภาพเพื่อเริ่มวัด</p>
+        <div class="lbar"><i></i><i></i><i></i><i></i><span class="lmark" id="lmark"></span></div>
+        <div class="llabels"><div class="l0">ปลอดภัย<small id="r0"></small></div><div class="l1">เฝ้าระวัง<small id="r1"></small></div><div class="l2">เสี่ยง<small id="r2"></small></div><div class="l3">เกินเกณฑ์<small id="r3"></small></div></div>
+      </div>
+      <p class="disc">ผลนี้เป็นการคัดกรองเบื้องต้นจากสี ไม่ใช่การตัดสินความปลอดภัยของอาหาร เกณฑ์อ้างอิงตั้งได้ในหน้า “เพิ่มเติม” และควรยืนยันด้วยวิธีมาตรฐาน (เช่น HPLC)</p>
+    </section>
+
+    <div class="statusbar"><span>อัปเดตล่าสุด: <b id="updTime" style="font-weight:500">–</b></span><span class="ok"><i class="dot on"></i>พร้อมใช้งาน</span></div>
+  </div>
+</section>
+
+<!-- ===== ประวัติ ===== -->
+<section data-view="history" hidden>
+  <h2 class="page-h">ประวัติการวัด</h2>
+  <div class="row"><button class="btn primary" id="btnCsv">ส่งออก CSV</button><button class="btn danger" id="btnClear">ล้างประวัติ</button></div>
+  <div class="tbl-wrap"><table id="histTbl"></table></div>
+</section>
+
+<!-- ===== รายงาน ===== -->
+<section data-view="report" hidden>
+  <h2 class="page-h">รายงานสรุป</h2>
+  <div class="row"><button class="btn primary" id="btnPrint">พิมพ์ / บันทึกเป็น PDF</button></div>
+  <div class="stats" id="stats"></div>
+  <div class="two">
+    <div class="card"><h3>แนวโน้มความเข้มข้น (ตัวอย่างเดิม, ppm)</h3><canvas id="trend" class="plot" width="520" height="320"></canvas></div>
+    <div class="card"><h3>กราฟสอบเทียบและจุดที่วัด</h3><div class="eq mono" id="eqText"></div><canvas id="calplot" class="plot" width="520" height="320"></canvas></div>
+  </div>
+</section>
+
+<!-- ===== เพิ่มเติม / ตั้งค่า ===== -->
+<section data-view="more" hidden>
+  <h2 class="page-h">ตั้งค่า</h2>
+  <div class="card"><h3>สมการสอบเทียบ &nbsp; y = log(I₀/G) = m·x + b</h3>
+    <div class="fgrid" id="fCal"></div>
+    <label class="field" style="max-width:240px">ฐานของ log<select id="logBase" data-k="logBase"><option value="10">log₁₀ (ค่าเริ่มต้น)</option><option value="e">ln (ลอการิทึมธรรมชาติ)</option></select></label>
+    <p class="note">G ใช้ค่า sRGB ดิบ 0–255 เหมือนตอนทดลอง (ไม่แปลงเป็น linear) ควรถ่ายภาพภายใต้แสง/กล้อง/ระยะเดียวกับที่ได้ I₀ = 189</p>
+  </div>
+  <div class="card"><h3>ช่วงสอบเทียบและตัวอย่าง</h3>
+    <div class="fgrid" id="fSample"></div>
+    <p class="note">ค่า x ที่อยู่นอกช่วงสอบเทียบจะมีคำเตือน ตั้งช่วงให้ตรงกับความเข้มข้นต่ำสุด–สูงสุดที่คุณใช้ทำกราฟจริง • ตัวอย่างเดิม = x × dilution factor</p>
+  </div>
+  <div class="card"><h3>การอ่านภาพ</h3>
+    <div class="fgrid" id="fImg"></div>
+  </div>
+  <div class="row"><button class="btn" id="btnTheme2">สลับโหมดมืด/สว่าง</button><button class="btn danger" id="btnDefaults">คืนค่าเริ่มต้น</button></div>
+</section>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
